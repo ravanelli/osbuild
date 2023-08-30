@@ -113,10 +113,6 @@ def main(tree, options):
 
     kargs = []
 
-    if rootfs:
-        rootfs_id = make_fs_identifier(rootfs)
-        kargs += [f"--karg=root={rootfs_id}"]
-
     for opt in kopts:
         kargs += [f"--karg-append={opt}"]
 

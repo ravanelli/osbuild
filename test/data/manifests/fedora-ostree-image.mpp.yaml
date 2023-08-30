@@ -85,8 +85,6 @@ pipelines:
             - rw
             - console=tty0
             - console=ttyS0
-            - systemd.log_target=console
-            - systemd.journald.forward_to_console=1
             - ignition.platform.id=qemu
             - '$ignition_firstboot'
       - type: org.osbuild.ostree.selinux
