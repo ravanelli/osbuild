@@ -28,7 +28,7 @@ mpp-define-image:
 sources:
   org.osbuild.ostree:
     items:
-      bf28f852e934b0c0b9eee232a58970e96adb3e691299b02376f8719530e03fb3:
+      d7a91db30c001cb4b354341533ecd71bc308ea4b28e70d30a981f2f7ea3e0b9f:
         remote:
           url: https://kojipkgs.fedoraproject.org/ostree/repo/
 pipelines:
@@ -53,7 +53,7 @@ pipelines:
             type: org.osbuild.ostree
             origin: org.osbuild.source
             references:
-              "bf28f852e934b0c0b9eee232a58970e96adb3e691299b02376f8719530e03fb3":
+              "d7a91db30c001cb4b354341533ecd71bc308ea4b28e70d30a981f2f7ea3e0b9f":
                 ref: fedora/x86_64/coreos/stable
       - type: org.osbuild.ostree.os-init
         options:
