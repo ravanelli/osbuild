@@ -34,13 +34,9 @@ sources:
 pipelines:
   - mpp-import-pipelines:
       path: fedora-vars.ipp.yaml
-  - mpp-import-pipeline:
-      path: fedora-build-v2.ipp.yaml
-      id: build
     runner:
       mpp-format-string: org.osbuild.fedora{release}
   - name: image-tree
-    build: name:build
     source-epoch: 1659397331
     stages:
       - type: org.osbuild.ostree.init-fs
@@ -101,7 +97,6 @@ pipelines:
           greenboot: false
           ignition: true
   - name: image
-    build: name:build
     stages:
       - type: org.osbuild.truncate
         options:
@@ -225,7 +220,6 @@ pipelines:
               mpp-format-int: '{image.layout[''boot''].index}'
             path: /grub2
   - name: qcow2
-    build: name:build
     stages:
       - type: org.osbuild.qemu
         inputs:
