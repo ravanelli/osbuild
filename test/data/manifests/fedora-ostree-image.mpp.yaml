@@ -63,8 +63,6 @@ pipelines:
           mounts:
             - /boot
             - /boot/efi
-          rootfs:
-            label: root
           kernel_opts:
             - rw
             - console=tty0
