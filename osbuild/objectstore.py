@@ -287,10 +287,13 @@ class HostTree:
         # with just /usr mounted from the host
         usr = os.path.join(root, "usr")
         os.makedirs(usr)
+        boot = os.path.join(root, "boot")
+        os.makedirs(boot)
 
         # ensure / is read-only
         mount(root, root)
         mount("/usr", usr)
+        mount("/boot", boot)
 
     @property
     def tree(self) -> os.PathLike:
