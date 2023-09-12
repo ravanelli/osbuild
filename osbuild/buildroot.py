@@ -196,7 +196,7 @@ class BuildRoot(contextlib.AbstractContextManager):
 
         # Import directories from the caller-provided root.
         imports = ["usr"]
-        if self.mount_boot:
+        if True:
             imports.insert(0, "boot")
 
         for p in imports:
