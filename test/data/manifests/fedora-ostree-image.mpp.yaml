@@ -113,14 +113,37 @@ pipelines:
           filename: disk.img
           size:
             mpp-format-string: '{image.size}'
-      - type: org.osbuild.sfdisk
+      - type: org.osbuild.parted
         devices:
           device:
             type: org.osbuild.loopback
             options:
               filename: disk.img
         options:
-          mpp-format-json: '{image.layout}'
+           label: gpt
+           partitions:
+             - start:
+                 mpp-format-int: '{image.layout[''BIOS-BOOT''].start}'
+               size:
+                 mpp-format-int: '{image.layout[''BIOS-BOOT''].size}'
+               bootable: true
+               type: bios_grub
+               name: BIOS-BOOT
+             - start:
+                 mpp-format-int: '{image.layout[''EFI-SYSTEM''].start}'
+               size:
+                 mpp-format-int: '{image.layout[''EFI-SYSTEM''].size}'
+               name: EFI-SYSTEM
+             - start:
+                 mpp-format-int: '{image.layout[''boot''].start}'
+               size:
+                 mpp-format-int: '{image.layout[''boot''].size}'
+               name: boot
+             - start:
+                 mpp-format-int: '{image.layout[''root''].start}'
+               size:
+                 mpp-format-int: '{image.layout[''root''].size}'
+               name: root
       - type: org.osbuild.mkfs.fat
         devices:
           device:
