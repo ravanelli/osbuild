@@ -349,14 +349,9 @@ def copy_font(tree):
 
 def copy_efi_data(tree, vendor):
     """Copy the EFI binaries & data into /boot/efi"""
-    print("Copy the EFI binaries & data into /boot/efi")
-    print("Tree", tree)
-    subprocess.run(["ls", "/"], shell=True)
     for d in ['BOOT', vendor]:
         source = f"/boot/efi/EFI/{d}"
         target = f"{tree}/boot/efi/EFI/{d}/"
-        print("Coyping source:", source)
-        print("To target:", target)
         shutil.copytree(source, target,
                         symlinks=False)
 
@@ -586,14 +581,20 @@ def main(tree, options):
         if uefi.get('install', False):
             copy_efi_data(tree, vendor)
         grubcfg = f"{tree}/boot/efi/EFI/{vendor}/grub.cfg"
-        if hybrid or unified:
-            config.write_redirect(tree, grubcfg)
-        else:
-            config.path = grubcfg
+        config.path = grubcfg
 
     # Now actually write the main grub.cfg file
-    #config.write(tree)
-    #print(tree)
+    config.write(tree)
+
+    if legacy:
+        copy_modules(tree, legacy)
+        copy_font(tree)
+
+    install_coreos_grub()
+    return 0
+
+def install_coreos_grub():
+
     print("Writing grub Config") 
     with open ("/run/osbuild/tree/boot/grub2/grub.cfg", 'w') as grub2:
         grub2.write('''\
@@ -657,6 +658,9 @@ function load_video {
 
 # Any non-default console settings will be inserted here.
 # CONSOLE-SETTINGS-START
+serial --speed=115200
+terminal_input serial console
+terminal_output serial console
 # CONSOLE-SETTINGS-END
 
 if [ x$feature_timeout_style = xy ] ; then
@@ -692,7 +696,8 @@ fi
 
 blscfg
 ''')
-    with open (grubcfg, 'w') as grub:
+    print("Adding efi boot")
+    with open ("/run/osbuild/tree/boot/efi/EFI/fedora/grub.cfg", 'w') as grub:
         grub.write('''\
 if [ -e (md/md-boot) ]; then
   # The search command might pick a RAID component rather than the RAID,
@@ -714,15 +719,119 @@ configfile $prefix/grub.cfg
 boot
 ''')
 
-
-    if legacy:
-        copy_modules(tree, legacy)
-        copy_font(tree)
-
-    return 0
-
-
+    print("Adding Platforms") 
+    os.mkdir("/run/osbuild/tree/boot/coreos")
+    with open ("/run/osbuild/tree/boot/coreos/platforms.json", 'w') as platforms:
+        platforms.write('''
+{
+  "aws": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=tty0",
+      "console=ttyS0,115200n8"
+    ]
+  },
+  "azure": {
+    "kernel_arguments": [
+      "console=tty0",
+      "console=ttyS0,115200n8"
+    ]
+  },
+  "gcp": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=tty0",
+      "console=ttyS0,115200n8"
+    ]
+  },
+  "ibmcloud": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=tty0",
+      "console=ttyS0,115200n8"
+    ]
+  },
+  "kubevirt": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=ttyS0,115200n8",
+      "console=tty0"
+    ]
+  },
+  "openstack": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=ttyS0,115200n8",
+      "console=tty0"
+    ]
+  },
+  "packet": {
+    "grub_commands": [
+      "serial --unit=1 --speed=115200",
+      "terminal_input serial",
+      "terminal_output serial"
+    ],
+    "kernel_arguments": [
+      "console=ttyS1,115200n8"
+    ]
+  },
+  "qemu": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=tty0",
+      "console=ttyS0,115200n8"
+    ]
+  },
+  "virtualbox": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=ttyS0,115200n8",
+      "console=tty0"
+    ]
+  },
+  "vmware": {
+    "grub_commands": [
+      "serial --speed=115200",
+      "terminal_input serial console",
+      "terminal_output serial console"
+    ],
+    "kernel_arguments": [
+      "console=ttyS0,115200n8",
+      "console=tty0"
+    ]
+  }
+}
+''')
 if __name__ == '__main__':
     args = osbuild.api.arguments()
     r = main(args["tree"], args["options"])
+
     sys.exit(r)
