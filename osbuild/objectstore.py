@@ -289,9 +289,12 @@ class HostTree:
         os.makedirs(usr)
         boot = os.path.join(root, "boot")
         os.makedirs(boot)
+        etc = os.path.join(root, "etc")
+        os.makedirs(etc)
 
         # ensure / is read-only
         mount(root, root)
+        mount("/etc", etc)
         mount("/usr", usr)
         mount("/boot", boot)
 
