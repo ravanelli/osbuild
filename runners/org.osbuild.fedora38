@@ -50,11 +50,11 @@ def sequoia():
 
 if __name__ == "__main__":
     with osbuild.api.exception_handler():
-        # ldconfig()
-        # sysusers()
-        # tmpfiles()
-        # nsswitch()
-        # sequoia()
+        ldconfig()
+        sysusers()
+        tmpfiles()
+        nsswitch()
+        sequoia()
 
         r = subprocess.run(sys.argv[1:], check=False)
         sys.exit(r.returncode)
