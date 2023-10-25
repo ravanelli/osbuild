@@ -1103,6 +1103,9 @@
           }
         },
         {
+          "type": "org.osbuild.ostree.aleph"
+        },
+        {
           "type": "org.osbuild.ostree.fillvar",
           "options": {
             "deployment": {

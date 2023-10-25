@@ -113,6 +113,9 @@ pipelines:
               images:
                 - source: registry.gitlab.com/redhat/services/products/image-builder/ci/images/fedora-coreos
                   tag: stable
+      - type: org.osbuild.ostree.aleph
+        options:
+          coreos_compat: true
       - type: org.osbuild.ostree.selinux
         options:
           deployment:
