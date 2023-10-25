@@ -1,0 +1,92 @@
+#!/usr/bin/python3
+"""
+Install grub bios or uefi via bootupd.
+It this way we make sure it will be updated.
+Bootupd supports updating GRUB and shim for UEFI firmware on x86_64 and aarch64,
+and GRUB for BIOS firmware on x86_64.
+The project is deployed in Fedora CoreOS and derivatives
+"""
+
+import os
+import subprocess
+import sys
+
+import osbuild.api
+from osbuild.util import ostree
+
+SCHEMA = """
+"additionalProperties": true,
+"required": ["arch", "deployment"],
+"properties": {
+  "arch": {
+    "description": "Build architecture.",
+    "type": "string"
+  },
+  "deployment": {
+    "additionalProperties": false,
+    "required": ["osname", "ref"],
+    "properties": {
+      "osname": {
+        "description": "Name of the stateroot to be used in the deployment",
+        "type": "string"
+      },
+      "ref": {
+        "description": "OStree ref to create and use for deployment",
+        "type": "string"
+      },
+      "serial": {
+        "description": "The deployment serial (usually '0')",
+        "type": "number",
+        "default": 0
+      }
+    }
+  },
+  "uefi": {
+    "description": "Install uefi, if false bios is the default",
+    "type": "boolean"
+  },
+  "disk": {
+    "description": "Disk where the bios should be installed.",
+    "type": "string"
+  }
+}
+"""
+def chroot_run(deploy_root, bootupd_args):
+
+    subprocess.run(['lsblk'])
+    for mnt in ['dev', 'proc', 'sys', 'run ', 'var', 'tmp']:
+        subprocess.run(['mount', '--rbind', f"/{mnt}", f"{deploy_root}/{mnt}"], shell=True, check=True)
+
+    subprocess.run(['chroot', deploy_root, 'env', '/usr/bin/bootupctl', 'backend', 'install',  '--with-static-configs', f"--src-root=/", '/run/osbuild/tree/ostree/deploy/fedora-coreos/deploy/062ad1f2fd1ae4840e893e2abacb6729d602a4ba67c9c7d7c3d6c2ac5ca0d697.0/ostre'], check=True)
+    for mnt in ['dev', 'proc', 'sys', 'run ', 'var', 'tmp']: 
+        subprocess.run(['umount', '--recursive', f"{deploy_root}/{mnt}"], shell=True, check=True)
+
+def main(tree, options):
+    arch = options["arch"]
+    disk=""
+    bios =  options["bios"]
+    dep = options["deployment"]
+    osname = dep["osname"]
+    ref = dep["ref"]
+    serial = dep.get("serial", 0)
+
+    # this created a state root at `osname`
+    stateroot = f"{tree}/ostree/deploy/{osname}"
+
+    deploy_root = ostree.deployment_path(tree, osname, ref, serial)
+    if arch in ['x86_64', 'aarch64','ppc64le']:
+        bootupd_args=''
+    if bios == True: 
+        bootupd_args+=f"--device={disk}"
+
+    chroot_run(deploy_root, bootupd_args)
+    return 0
+
+
+if __name__ == '__main__':
+    args = osbuild.api.arguments()
+    r = main(args["tree"], args["options"])
+    sys.exit(r)
+
+
+
