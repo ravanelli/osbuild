@@ -17,10 +17,6 @@ import osbuild.api
 from osbuild.util import ostree
 
 SCHEMA_2 = r"""
-"inputs": {
-  "type": "object",
-  "additionalProperties": true
-},
 "devices": {
   "type": "object",
   "additionalProperties": true

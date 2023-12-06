@@ -229,19 +229,7 @@ pipelines:
             source: efi
             target: /boot/efi
       - type: org.osbuild.bootupd
-        inputs:
-          tree:
-            type: org.osbuild.tree
-            origin: org.osbuild.pipeline
-            references:
-              - name:tree
         options:
-          paths:
-            - from: input://tree/
-              to: mount://root/
-          deployment:
-            osname: fedora-coreos
-            ref: ostree/1/1/0
           arch:
             mpp-format-string: '{arch}'
         devices:
