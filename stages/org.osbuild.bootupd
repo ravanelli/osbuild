@@ -59,15 +59,22 @@ def main(args, options):
     bios = options.get("bios", {})
     disk = bios.get("disk", "")
 
-    mount_points = args["paths"]["mounts"]
-    deploy_root = ostree.deployment_path(mount_points)
+    # Get the path where the filesystems are mounted
+    mounts = args["paths"]["mounts"]
+
+    # Get the deployment root. For non-OSTree this is simply
+    # the root location of the mount points. For OSTree systems
+    # we'll call ostree.deployment_path() helper to find it for us.
+    deploy_root = mounts
+    if os.path.isdir(os.path.join(mounts, "ostree")):
+        deploy_root = ostree.deployment_path(mounts)
 
     bootupd_args=''
     if disk:
        bootupd_args+=f"--device={disk} "
     if static_configs == True:
        bootupd_args+=f"--with-static-configs"
-    chroot_run(deploy_root, bootupd_args, mount_points)
+    chroot_run(deploy_root, bootupd_args, mounts)
     return 0
 
 if __name__ == '__main__':
