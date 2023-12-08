@@ -396,6 +396,51 @@ pipelines:
             type: org.osbuild.fat
             source: efi
             target: /boot/efi
+      - type: org.osbuild.bootupd
+        options:
+          static-configs: true
+        devices:
+          wholedisk:
+            type: org.osbuild.loopback
+            options:
+              filename: disk.img
+          efi:
+            type: org.osbuild.loopback
+            options:
+              filename: disk.img
+              start:
+                mpp-format-int: '{image4k.layout[''EFI-SYSTEM''].start}'
+              size:
+                mpp-format-int: '{image4k.layout[''EFI-SYSTEM''].size}'
+          boot:
+            type: org.osbuild.loopback
+            options:
+              filename: disk.img
+              start:
+                mpp-format-int: '{image4k.layout[''boot''].start}'
+              size:
+                mpp-format-int: '{image4k.layout[''boot''].size}'
+          root:
+            type: org.osbuild.loopback
+            options:
+              filename: disk.img
+              start:
+                mpp-format-int: '{image4k.layout[''root''].start}'
+              size:
+                mpp-format-int: '{image4k.layout[''root''].size}'
+        mounts:
+          - name: root
+            type: org.osbuild.xfs
+            source: root
+            target: /
+          - name: boot
+            type: org.osbuild.ext4
+            source: boot
+            target: /boot
+          - name: efi
+            type: org.osbuild.fat
+            source: efi
+            target: /boot/efi
   - name: raw-metal-image
     build: name:build
     stages:
