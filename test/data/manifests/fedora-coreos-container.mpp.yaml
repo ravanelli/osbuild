@@ -232,6 +232,7 @@ pipelines:
         options:
           bios:
             disk: wholedisk
+          static-configs: true
         devices:
           wholedisk:
             type: org.osbuild.loopback
