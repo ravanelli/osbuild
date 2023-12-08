@@ -83,8 +83,9 @@ def main(args, options):
     ref = dep["ref"]
     serial = dep.get("serial", 0)
     arch = options["arch"]
-    static_configs =  options["static-configs"]
-    disk = options["bios"]["disk"]
+    static_configs =  options.get("static-configs", False)
+    bios = options.get("bios", {})
+    disk = bios.get("disk", "")
 
     mount_points = args["paths"]["mounts"]
     deploy_root = ostree.deployment_path(mount_points, osname, ref, serial)
