@@ -44,15 +44,6 @@ SCHEMA_2 = r"""
 }
 }
 """
-def chroot_run(deploy_root, bootupd_args, mount_points):
-
-    for mnt in ['dev', 'proc',  'sys', 'run', 'var', 'tmp']:
-        subprocess.run(['mount', '--rbind', f"/{mnt}", f"{deploy_root}/{mnt}"])
-
-    subprocess.run(['chroot', deploy_root, '/usr/bin/bootupctl', 'backend', 'install', '-v', f"--src-root={deploy_root}", bootupd_args, mount_points], check=True)
-
-    for mnt in ['dev', 'proc',  'sys', 'run', 'var', 'tmp']:
-         subprocess.run(['umount', '--recursive', f"${deploy_root}/mnt"])
 
 def main(args, options):
     static_configs =  options.get("static-configs", False)
@@ -65,16 +56,35 @@ def main(args, options):
     # Get the deployment root. For non-OSTree this is simply
     # the root location of the mount points. For OSTree systems
     # we'll call ostree.deployment_path() helper to find it for us.
-    deploy_root = mounts
+    deployment = mounts
     if os.path.isdir(os.path.join(mounts, "ostree")):
-        deploy_root = ostree.deployment_path(mounts)
+        deployment = ostree.deployment_path(mounts)
 
-    bootupd_args=''
+    bootupd_args=[]
     if disk:
-       bootupd_args+=f"--device={disk} "
+       bootupd_args.append(f"--device={disk}")
     if static_configs == True:
-       bootupd_args+=f"--with-static-configs"
-    chroot_run(deploy_root, bootupd_args, mounts)
+       bootupd_args.append("--with-static-configs")
+
+    # We want to run the bootupctl command from the target (i.e. we
+    # want to make sure the version used matches the target and not
+    # risk any inconsistencies with the build root). Let's set up
+    # and chroot to run the bootupctl command from the target.
+    submounts = ['dev', 'proc',  'sys', 'run', 'var', 'tmp']
+    for mnt in submounts:
+        subprocess.run(['mount', '--rbind',
+                       os.path.join("/", mnt),
+                       os.path.join(deployment, mnt)],
+                       check=True)
+    try:
+        cmd = ['chroot', deployment, '/usr/bin/bootupctl', 'backend', 'install']
+        cmd.extend(bootupd_args)
+        cmd.append(mounts)
+        subprocess.run(cmd, check=True)
+    finally:
+        for mnt in submounts:
+             subprocess.run(['umount', '--recursive', os.path.join(deployment, mnt)])
+
     return 0
 
 if __name__ == '__main__':
