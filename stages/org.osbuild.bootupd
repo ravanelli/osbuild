@@ -31,25 +31,6 @@ SCHEMA_2 = r"""
     "description": "Build architecture.",
     "type": "string"
   },
-  "deployment": {
-    "additionalProperties": false,
-    "required": ["osname", "ref"],
-    "properties": {
-      "osname": {
-        "description": "Name of the stateroot to be used in the deployment",
-        "type": "string"
-      },
-      "ref": {
-        "description": "OStree ref to create and use for deployment",
-        "type": "string"
-      },
-      "serial": {
-        "description": "The deployment serial (usually '0')",
-        "type": "number",
-        "default": 0
-      }
-    }
-  },
   "static-configs": {
     "description": "Install the grub configs defined for Fedora CoreOS",
     "type": "boolean"
@@ -78,21 +59,13 @@ def chroot_run(deploy_root, bootupd_args, mount_points):
          subprocess.run(['umount', '--recursive', f"${deploy_root}/mnt"])
 
 def main(args, options):
-    deployment = options.get("deployment", {}]
-    osname = ""
-    ref = ""
-    serial = None
-    if deployment:
-        osname = deployment["osname"]
-        ref = deployment["ref"]
-        serial = dep.get("serial", 0)
     arch = options["arch"]
     static_configs =  options.get("static-configs", False)
     bios = options.get("bios", {})
     disk = bios.get("disk", "")
 
     mount_points = args["paths"]["mounts"]
-    deploy_root = ostree.deployment_path(mount_points, osname, ref, serial)
+    deploy_root = ostree.deployment_path(mount_points)
 
     if arch in ['x86_64', 'aarch64','ppc64le']:
         bootupd_args=''
