@@ -62,7 +62,12 @@ def main(args, options):
 
     bootupd_args=[]
     if disk:
-       bootupd_args.append(f"--device={disk}")
+       # The value passed by the user is the name of the device
+       # as specified in the devices array (also passed in by the
+       # user). Let's map that name to the actual loopback device
+       # that now backs it.
+       dev = args["devices"][disk]["path"]
+       bootupd_args.append(f"--device={dev}")
     if static_configs == True:
        bootupd_args.append("--with-static-configs")
 

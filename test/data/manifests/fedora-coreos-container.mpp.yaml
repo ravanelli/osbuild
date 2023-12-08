@@ -229,7 +229,14 @@ pipelines:
             source: efi
             target: /boot/efi
       - type: org.osbuild.bootupd
+        options:
+          bios:
+            disk: wholedisk
         devices:
+          wholedisk:
+            type: org.osbuild.loopback
+            options:
+              filename: disk.img
           efi:
             type: org.osbuild.loopback
             options:
