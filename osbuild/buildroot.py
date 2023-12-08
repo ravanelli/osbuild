@@ -210,15 +210,24 @@ class BuildRoot(contextlib.AbstractContextManager):
         mounts += ["--symlink", "usr/bin", "/bin"]
         mounts += ["--symlink", "usr/sbin", "/sbin"]
 
-        # Setup /dev.
-        mounts += ["--dev-bind", self.dev, "/dev"]
-        mounts += ["--tmpfs", "/dev/shm"]
 
         # Setup temporary/data file-systems.
         mounts += ["--dir", "/etc"]
         mounts += ["--tmpfs", "/run"]
         mounts += ["--tmpfs", "/tmp"]
         mounts += ["--bind", self.var, "/var"]
+
+        # Setup /dev. Here we bind mount our tmp dev dir into /dev
+        # and also to the same path `self.dev -> self.dev` inside
+        # the bwrap container. We do this because some tools (like
+        # grub2-install) consult mountinfo to try to canonicalize
+        # paths for mounts. https://github.com/osbuild/osbuild/issues/1492
+        #
+        # We do the dev binding here, after the `--tmpfs /run` above since
+        # self.dev is in /run/osbuild.
+        mounts += ["--dev-bind", self.dev, "/dev"]
+        mounts += ["--dev-bind", self.dev, self.dev]
+        mounts += ["--tmpfs", "/dev/shm"]
 
         # Setup API file-systems.
         mounts += ["--proc", "/proc"]
