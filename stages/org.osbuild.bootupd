@@ -78,10 +78,14 @@ def chroot_run(deploy_root, bootupd_args, mount_points):
          subprocess.run(['umount', '--recursive', f"${deploy_root}/mnt"])
 
 def main(args, options):
-    dep = options["deployment"]
-    osname = dep["osname"]
-    ref = dep["ref"]
-    serial = dep.get("serial", 0)
+    deployment = options.get("deployment", {}]
+    osname = ""
+    ref = ""
+    serial = None
+    if deployment:
+        osname = deployment["osname"]
+        ref = deployment["ref"]
+        serial = dep.get("serial", 0)
     arch = options["arch"]
     static_configs =  options.get("static-configs", False)
     bios = options.get("bios", {})
