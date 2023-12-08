@@ -229,9 +229,6 @@ pipelines:
             source: efi
             target: /boot/efi
       - type: org.osbuild.bootupd
-        options:
-          arch:
-            mpp-format-string: '{arch}'
         devices:
           efi:
             type: org.osbuild.loopback

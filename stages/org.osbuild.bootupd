@@ -27,10 +27,6 @@ SCHEMA_2 = r"""
 "options": {
 "additionalProperties": true,
 "properties": {
-  "arch": {
-    "description": "Build architecture.",
-    "type": "string"
-  },
   "static-configs": {
     "description": "Install the grub configs defined for Fedora CoreOS",
     "type": "boolean"
@@ -59,7 +55,6 @@ def chroot_run(deploy_root, bootupd_args, mount_points):
          subprocess.run(['umount', '--recursive', f"${deploy_root}/mnt"])
 
 def main(args, options):
-    arch = options["arch"]
     static_configs =  options.get("static-configs", False)
     bios = options.get("bios", {})
     disk = bios.get("disk", "")
@@ -67,13 +62,12 @@ def main(args, options):
     mount_points = args["paths"]["mounts"]
     deploy_root = ostree.deployment_path(mount_points)
 
-    if arch in ['x86_64', 'aarch64','ppc64le']:
-        bootupd_args=''
-        if disk:
-           bootupd_args+=f"--device={disk} "
-        if static_configs == True:
-           bootupd_args+=f"--with-static-configs"
-        chroot_run(deploy_root, bootupd_args, mount_points)
+    bootupd_args=''
+    if disk:
+       bootupd_args+=f"--device={disk} "
+    if static_configs == True:
+       bootupd_args+=f"--with-static-configs"
+    chroot_run(deploy_root, bootupd_args, mount_points)
     return 0
 
 if __name__ == '__main__':
