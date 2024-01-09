@@ -25,9 +25,10 @@ SCHEMA_2 = r"""
   "type": "array"
 },
 "options": {
-  "additionalProperties": true,
+  "additionalProperties": false,
   "properties": {
     "deployment": {
+      "type": "object",
       "additionalProperties": false,
       "required": ["osname", "ref"],
       "properties": {
@@ -52,6 +53,7 @@ SCHEMA_2 = r"""
     },
     "bios": {
       "additionalProperties": false,
+      "type": "object",
       "required": ["disk"],
       "properties": {
         "disk": {
