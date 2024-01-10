@@ -10,6 +10,7 @@ The project is deployed in Fedora CoreOS and derivatives
 """
 
 import contextlib
+import json
 import os
 import subprocess
 import sys
@@ -55,11 +56,15 @@ SCHEMA_2 = r"""
     "bios": {
       "additionalProperties": false,
       "type": "object",
-      "required": ["disk"],
+      "required": ["device"],
       "properties": {
-        "disk": {
-            "description": "Disk to install GRUB for BIOS-based systems",
+        "device": {
+            "description": "Name of stage device to install GRUB for BIOS-based systems.",
             "type": "string"
+        },
+        "partition": {
+            "description": "The partition on the stage device to install to, if installing to a partition",
+            "type": "number"
         }
       }
     }
@@ -85,7 +90,8 @@ def main(args, options):
     deployment = options.get("deployment", None)
     static_configs = options.get("static-configs", False)
     bios = options.get("bios", {})
-    disk = bios.get("disk", "")
+    device = bios.get("device", "")
+    partition = bios.get("partition", None)
 
     # Get the path where the filesystems are mounted
     mounts = args["paths"]["mounts"]
@@ -101,13 +107,26 @@ def main(args, options):
         root = ostree.deployment_path(mounts, osname, ref, serial)
 
     bootupd_args = []
-    if disk:
+    if device:
         # The value passed by the user is the name of the device
         # as specified in the devices array (also passed in by the
         # user). Let's map that name to the actual loopback device
         # that now backs it.
-        dev = args["devices"][disk]["path"]
-        bootupd_args.append(f"--device={dev}")
+        target = args["devices"][device]["path"]
+        # If we are targeting a partition on the device rather than
+        # the whole device itself (i.e. MBR) then let's find that
+        # partition's device.
+        if partition:
+            cp = subprocess.run(["sfdisk", "--json", target],
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT,
+                               encoding='utf8',
+                               check=True)
+            disk_table = json.loads(cp.stdout)["partitiontable"]
+            disk_parts = disk_table["partitions"]
+            index = partition - 1  # partition index starts at 0
+            target = disk_parts[index]["node"]
+        bootupd_args.append(f"--device={target}")
     if static_configs:
         bootupd_args.append("--with-static-configs")
 
@@ -120,7 +139,6 @@ def main(args, options):
         cmd.extend(bootupd_args)
         cmd.append(mounts)
         subprocess.run(cmd, check=True)
-
     return 0
 
 

@@ -14,12 +14,17 @@ mpp-define-images:
       uuid: 00000000-0000-4000-a000-000000000001
       label: gpt
       partitions:
-        - name: BIOS-BOOT
-          type: 21686148-6449-6E6F-744E-656564454649
+        - name: PowerPC-PReP-boot
+          type: 9E1A2D38-C612-4316-AA26-8B49521E5A8B
           bootable: true
           uuid: FAC7F1FB-3E8D-4137-A512-961DE09A5549
           size:
-            mpp-format-int: "{bios_boot_size_mb * 1024 * 1024 / sector_size}"
+            mpp-format-int: "{4 * 1024 * 1024 / sector_size}"
+        - name: reserved
+          type: 8DA63339-0007-60C0-C436-083AC8230908
+          uuid: 61B2905B-DF3E-4FB3-80FA-49D1E773AA32
+          size:
+            mpp-format-int: "{1 * 1024 * 1024 / sector_size}"
         - name: boot
           type: 0FC63DAF-8483-4772-8E79-3D69D8477DE4
           uuid: 61B2905B-DF3E-4FB3-80FA-49D1E773AA32
@@ -39,12 +44,12 @@ mpp-define-images:
       uuid: 00000000-0000-4000-a000-000000000001
       label: gpt
       partitions:
-        - name: BIOS-BOOT
-          type: 21686148-6449-6E6F-744E-656564454649
+        - name: PowerPC-PReP-boot
+          type: 9E1A2D38-C612-4316-AA26-8B49521E5A8B
           bootable: true
-          uuid: FAC7F1FB-3E8D-4137-A512-961DE09A5549
-          size:
-            mpp-format-int: "{bios_boot_size_mb * 1024 * 1024 / four_k_sector_size}"
+          uuid: 00000000-0000-4000-a000-000000000001
+          size: 
+            mpp-format-int: "{4 * 1024 * 1024 / sector_size}"
         - name: boot
           type: 0FC63DAF-8483-4772-8E79-3D69D8477DE4
           uuid: 61B2905B-DF3E-4FB3-80FA-49D1E773AA32
@@ -96,6 +101,12 @@ pipelines:
               images:
                 - source: quay.io/ravanelli/fcos
                   tag: bootupd
+      - type: org.osbuild.ostree.aleph
+        options:
+          coreos_compat: true
+          deployment:
+            osname: fedora-coreos
+            ref: ostree/1/1/0
       - type: org.osbuild.ostree.selinux
         options:
           deployment:
@@ -157,35 +168,30 @@ pipelines:
             - from: input://tree/
               to: mount://root/
         devices:
-          boot:
+          disk:
             type: org.osbuild.loopback
             options:
               filename: disk.img
-              start:
-                mpp-format-int: '{image.layout[''boot''].start}'
-              size:
-                mpp-format-int: '{image.layout[''boot''].size}'
-          root:
-            type: org.osbuild.loopback
-            options:
-              filename: disk.img
-              start:
-                mpp-format-int: '{image.layout[''root''].start}'
-              size:
-                mpp-format-int: '{image.layout[''root''].size}'
+              partscan: true
         mounts:
           - name: root
             type: org.osbuild.xfs
-            source: root
+            source: disk
+            partition:
+              mpp-format-int: '{image.layout[''root''].partnum}'
             target: /
           - name: boot
             type: org.osbuild.ext4
-            source: boot
+            source: disk
+            partition:
+              mpp-format-int: '{image.layout[''boot''].partnum}'
             target: /boot
       - type: org.osbuild.bootupd
         options:
           bios:
-            disk: disk
+            device: disk
+            partition:
+              mpp-format-int: '{image.layout[''PowerPC-PReP-boot''].partnum}'
           static-configs: true
           deployment:
             osname: fedora-coreos
@@ -271,67 +277,52 @@ pipelines:
             - from: input://tree/
               to: mount://root/
         devices:
-          boot:
+          disk:
             type: org.osbuild.loopback
             options:
               filename: disk.img
-              start:
-                mpp-format-int: '{image4k.layout[''boot''].start}'
-              size:
-                mpp-format-int: '{image4k.layout[''boot''].size}'
-              sector-size:
-                  mpp-format-int: "{four_k_sector_size}"
-          root:
-            type: org.osbuild.loopback
-            options:
-              filename: disk.img
-              start:
-                mpp-format-int: '{image4k.layout[''root''].start}'
-              size:
-                mpp-format-int: '{image4k.layout[''root''].size}'
+              partscan: true
               sector-size:
                   mpp-format-int: "{four_k_sector_size}"
         mounts:
           - name: root
             type: org.osbuild.xfs
-            source: root
+            source: disk
+            partition:
+              mpp-format-int: '{image4k.layout[''root''].partnum}'
             target: /
           - name: boot
             type: org.osbuild.ext4
-            source: boot
+            source: disk
+            partition:
+              mpp-format-int: '{image4k.layout[''boot''].partnum}'
             target: /boot
       - type: org.osbuild.bootupd
         options:
           static-configs: true
+          deployment:
+            osname: fedora-coreos
+            ref: ostree/1/1/0
         devices:
-          wholedisk:
+          disk:
             type: org.osbuild.loopback
             options:
               filename: disk.img
-          boot:
-            type: org.osbuild.loopback
-            options:
-              filename: disk.img
-              start:
-                mpp-format-int: '{image4k.layout[''boot''].start}'
-              size:
-                mpp-format-int: '{image4k.layout[''boot''].size}'
-          root:
-            type: org.osbuild.loopback
-            options:
-              filename: disk.img
-              start:
-                mpp-format-int: '{image4k.layout[''root''].start}'
-              size:
-                mpp-format-int: '{image4k.layout[''root''].size}'
+              partscan: true
+              sector-size:
+                  mpp-format-int: "{four_k_sector_size}"
         mounts:
           - name: root
             type: org.osbuild.xfs
-            source: root
+            source: disk
+            partition:
+              mpp-format-int: '{image4k.layout[''root''].partnum}'
             target: /
           - name: boot
             type: org.osbuild.ext4
-            source: boot
+            source: disk
+            partition:
+              mpp-format-int: '{image4k.layout[''boot''].partnum}'
             target: /boot
   - name: raw-metal-image
     build: name:build
