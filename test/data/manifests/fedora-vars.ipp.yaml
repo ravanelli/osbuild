@@ -1,7 +1,7 @@
 version: '2'
 
 mpp-vars:
-  arch: x86_64
+  arch: aarch64
   release: 39
   releasever: f$release
   snapshot: '20231109'

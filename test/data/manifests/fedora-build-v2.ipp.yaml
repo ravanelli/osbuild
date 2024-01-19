@@ -22,11 +22,9 @@ pipelines:
                 - e2fsprogs
                 - erofs-utils
                 - gdisk
-                - grub2-pc
                 - policycoreutils
                 - python3-iniparse
                 - python3-toml
-                - python3-yaml
                 - qemu-img
                 - rpm-ostree
                 - systemd
@@ -38,24 +36,16 @@ pipelines:
                 - genisoimage
                 - isomd5sum
                 - xorriso
-                - syslinux
                 - skopeo
                 - lorax-templates-generic
-                - syslinux-nonlinux
                 - squashfs-tools
-                - grub2-pc-modules
                 - grub2-tools
-                - grub2-efi-x64
-                - shim-x64
                 - efibootmgr
                 - grub2-tools-minimal
                 - grub2-tools-extra
-                - grub2-tools-efi
-                - grub2-efi-x64
-                - grub2-efi-x64-cdboot
-                - shim-ia32
-                - grub2-efi-ia32-cdboot
                 - zstd
+                - grub2-efi-aa64
+                - shim-aa64
                 - openscap-utils
         options:
           gpgkeys:
