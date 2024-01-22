@@ -92,7 +92,7 @@ pipelines:
           config:
             sysroot:
               readonly: true
-              bootloader: none
+              bootloader: zipl
               bls-append-except-default: grub_users=""
       - type: org.osbuild.mkdir
         options:
@@ -118,8 +118,8 @@ pipelines:
             origin: org.osbuild.source
             mpp-resolve-images:
               images:
-                - source: registry.gitlab.com/redhat/services/products/image-builder/ci/images/fedora-coreos
-                  tag: testing
+                - source: quay.io/ravanelli/fcos
+                  tag: bootupd_s390x
       - type: org.osbuild.ostree.aleph
         options:
           coreos_compat: true

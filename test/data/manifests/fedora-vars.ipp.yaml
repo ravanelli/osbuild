@@ -1,11 +1,11 @@
 version: '2'
 
 mpp-vars:
-  arch: x86_64
+  arch: s390x
   release: 39
   releasever: f$release
   snapshot: '20231109'
-  updates: '20231213'
+  updates: '20240101'
   ref: fedora/$arch/osbuild
   isolabel: Fedora-$release-X86_64
   repos:
