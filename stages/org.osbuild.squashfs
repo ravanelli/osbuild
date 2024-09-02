@@ -6,14 +6,18 @@ import sys
 import osbuild.api
 
 
-def main(inputs, output_dir, options):
+def main(inputs, mounts, output_dir, options):
     source = inputs["tree"]["path"]
     filename = options["filename"].lstrip("/")
     compression = options.get("compression")
-
+    cmd_metal=[]
     target = os.path.join(output_dir, filename)
 
-    cmd = ["mksquashfs", source, target]
+    if options.get("coreos"):
+       tmp_squashfs_dir = mounts['root']['path']
+       cmd_metal= ['-root-becomes', tmp_squashfs_dir, '-wildcards', '-no-recovery']
+       source = tmp_squashfs_dir
+    cmd = ["mksquashfs", source, target] + cmd_metal
 
     if compression:
         method = compression["method"]
@@ -29,5 +33,5 @@ def main(inputs, output_dir, options):
 
 if __name__ == '__main__':
     args = osbuild.api.arguments()
-    r = main(args["inputs"], args["tree"], args["options"])
+    r = main(args["inputs"], args['mounts'], args["tree"], args["options"])
     sys.exit(r)
