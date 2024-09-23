@@ -1,0 +1,28 @@
+{
+  "summary": "CoreOS squashfs needs`.",
+  "description": [
+    "This stage implements necessary CoreOS adjustments,",
+    "including creating links and modifying the read-only flag",
+    "in OSTree configurations.",
+    "These changes are essential to prepare the system for",
+    "utilizing the squashfs stage in osbuild."
+  ],
+  "schema_2": {
+    "options": {
+      "additionalProperties": false
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tree"
+      ],
+      "properties": {
+        "tree": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
