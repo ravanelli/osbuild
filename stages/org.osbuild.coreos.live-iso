@@ -156,17 +156,6 @@ def ensure_glob(pathname, **kwargs):
     return ret
 
 
-def bwrap(rootfs, args):
-    usr = os.path.join(rootfs, "usr")
-    etc = os.path.join(rootfs, "etc")
-    subprocess.check_call(["bwrap", "--unshare-pid", "--unshare-uts", "--unshare-ipc", "--dev-bind", "/dev", "/dev",
-                           "--ro-bind", "/sys", "/sys", "--proc", "/proc", "--chdir", "/", "--ro-bind", usr, "/usr",
-                           "--ro-bind", etc, "/etc", "--dir", "/tmp", "--tmpfs", "/var/tmp", "--tmpfs", "/run",
-                           "--bind", "/run/osbuild", "/run/osbuild",
-                           "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
-                           "--symlink", "usr/bin", "/bin", "--symlink", "usr/sbin", "/sbin"] + args)
-
-
 # This creates efiboot.img, which is a FAT filesystem.
 def make_efi_bootfile(tar_filename, efiboot_lodev):
     # lo = ctl.loop_for_fd(f.fileno(), autoclear=True)
@@ -188,13 +177,8 @@ def make_efi_bootfile(tar_filename, efiboot_lodev):
             subprocess.check_call(['umount', d])
 
 
-def main(inputs, devices, tree, options):
-    output_file = os.path.join(tree, options['filename'])
-    img_metal = devices['metal']['path']
-    img_metal4k = devices['metal4k']['path']
-    efiboot_img = devices['efiboot_img']['path']
-    efiboot_img_filename = os.path.join(tree, options['efiboot_img_filename'])
-    squashfs_compression = options['squashfs_compression']
+def main(inputs, mounts, tree, options, devices):
+    #output_file = os.path.join(tree, options['filename'])
     basearch = os.uname().machine
 
     base_name = get_os_name(inputs['tree']['path'])
@@ -217,9 +201,13 @@ def main(inputs, devices, tree, options):
     tmpinitrd_base = os.path.join(tree, 'initrd')
     # contents of rootfs image
     tmpinitrd_rootfs = os.path.join(tree, 'initrd-rootfs')
+    tmp_squashfs_dir = os.path.join(tree, 'tmp_squashfs_dir')
+    tmp_squashfs_dir = mounts['root']['path']
 
+    efiboot_img = devices['efiboot_img']['path']
+    efiboot_img_filename = os.path.join(tree, options['efiboot_img_filename'])
     for d in (tmpisoroot, tmpisocoreos, tmpisoimages, tmpisoimagespxe,
-              tmpisoisolinux, tmpinitrd_base, tmpinitrd_rootfs):
+              tmpisoisolinux, tmpinitrd_base):
         os.mkdir(d)
 
     # convention for kernel and initramfs names
@@ -232,8 +220,6 @@ def main(inputs, devices, tree, options):
 
     tmpisofile = os.path.join(tree, iso_name)
 
-    img_metal_checksum = sha256sum_file(img_metal)
-    img_metal4k_checksum = sha256sum_file(img_metal4k)
 
     # Find the directory under `/usr/lib/modules/<kver>` where the
     # kernel/initrd live. It will be the only entity in there.
@@ -294,62 +280,19 @@ def main(inputs, devices, tree, options):
     with open(os.path.join(tmpisocoreos, 'features.json'), 'w') as fh:
         fh.write(features)
 
-    # Add osmet files
-    fast_arg = []
-    if squashfs_compression == 'lz4':
-        fast_arg = ['--fast']
-    print('Generating osmet file for 512b metal image')
-    metal_osmet = os.path.join(tmpinitrd_rootfs, 'metal.osmet')
-    # use bwrap to make sure we use the coreos-installer from the target system
-    # XXX: passing the boot and root partitions... yuck... should pass through partition numbers instead?
-    # or just hack around lsblk not working in coreos-installer directly
-    bwrap(inputs['tree']['path'], ['coreos-installer', 'pack', 'osmet', img_metal, '--description',
-                                   os_release['PRETTY_NAME'], '--checksum', img_metal_checksum, '--output',
-                                   metal_osmet, f"{img_metal}p3", f"{img_metal}p4"] + fast_arg)
-    print('Generating osmet file for 4k metal image')
-    metal_osmet4k = os.path.join(tmpinitrd_rootfs, 'metal4k.osmet')
-    bwrap(inputs['tree']['path'], ['coreos-installer', 'pack', 'osmet', img_metal4k, '--description',
-                                   os_release['PRETTY_NAME'], '--checksum', img_metal4k_checksum, '--output',
-                                   metal_osmet4k, f"{img_metal4k}p3", f"{img_metal4k}p4"] + fast_arg)
 
-    # Generate root squashfs
-    print(f'Compressing squashfs with {squashfs_compression}')
-    try:
-        tmp_squashfs_dir = os.path.join(tree, 'tmp-squashfs-dir')
-        os.mkdir(tmp_squashfs_dir)
-        # XXX: pass partition numbers as options?
-        subprocess.check_call(['mount', '-o', 'ro', img_metal + 'p4', tmp_squashfs_dir])
-        umount_needed = True
-        subprocess.check_call(['mount', '-o', 'ro', img_metal + 'p3',
-                               os.path.join(tmp_squashfs_dir, 'boot')])
-        if basearch in ['x86_64', 'aarch64']:
-            subprocess.check_call(['mount', '-o', 'ro', img_metal + 'p2',
-                                   os.path.join(tmp_squashfs_dir, 'boot/efi')])
-        # Name must be exactly "root.squashfs" because the 20live dracut module
-        # makes assumptions about the length of the name in sysroot.mount
-        tmp_squashfs = os.path.join(tmpinitrd_rootfs, 'root.squashfs')
-        # this matches the set of flags we implicitly passed when doing this
-        # through libguestfs' mksquashfs command
-        subprocess.check_call(['mksquashfs', tmp_squashfs_dir, tmp_squashfs,
-                               '-root-becomes', tmp_squashfs_dir, '-wildcards', '-no-recovery',
-                               '-comp', squashfs_compression])
-
-        # while it's mounted here, also get the kargs
-        blsentry = ensure_glob(os.path.join(tmp_squashfs_dir, 'boot/loader/entries/*.conf'))
-        if len(blsentry) != 1:
-            raise Exception(f'Found != 1 BLS entries: {blsentry}')
-        blsentry = blsentry[0]
-        blsentry_kargs = []
-        with open(blsentry, encoding='utf8') as f:
-            for line in f:
-                if line.startswith('options '):
-                    blsentry_kargs = line.split(' ', 1)[1].strip().split(' ')
-                    break
-        if len(blsentry_kargs) == 0:
-            raise Exception("found no kargs in metal image")
-    finally:
-        if umount_needed:
-            subprocess.check_call(['umount', '-R', tmp_squashfs_dir])
+    blsentry = ensure_glob(os.path.join(tmp_squashfs_dir, 'boot/loader/entries/*.conf'))
+    if len(blsentry) != 1:
+        raise Exception(f'Found != 1 BLS entries: {blsentry}')
+    blsentry = blsentry[0]
+    blsentry_kargs = []
+    with open(blsentry, encoding='utf8') as f:
+        for line in f:
+            if line.startswith('options '):
+                blsentry_kargs = line.split(' ', 1)[1].strip().split(' ')
+                break
+    if len(blsentry_kargs) == 0:
+        raise Exception("found no kargs in metal image")
 
     # Generate rootfs image
     iso_rootfs = os.path.join(tmpisoimagespxe, rootfs_img)
@@ -676,6 +619,8 @@ boot
 
             # Create the efiboot.img file in the images/ dir
             efibootfile = os.path.join(tmpisoimages, 'efiboot.img')
+            print(f"efibootfile: {efibootfile}, efiboot_img_filename: {efiboot_img_filename}")
+            print(f"efitarfile.name: {efitarfile.name}, efiboot_img: {efiboot_img}")
             make_efi_bootfile(efitarfile.name, efiboot_img)
             shutil.copyfile(efiboot_img_filename, efibootfile)
 
@@ -751,13 +696,13 @@ boot
     if basearch == "x86_64":
         subprocess.check_call(['/usr/bin/isohybrid', '--uefi', f'{tmpisofile}.minimal'])
     # this consumes the minimal image
-    bwrap(inputs['tree']['path'], ['coreos-installer', 'pack', 'minimal-iso', tmpisofile,
-          f'{tmpisofile}.minimal', '--consume'])
+    #bwrap(inputs['tree']['path'], ['coreos-installer', 'pack', 'minimal-iso', tmpisofile,
+    #      f'{tmpisofile}.minimal', '--consume'])
 
-    shutil.move(tmpisofile, output_file)
+    #shutil.move(tmpisofile, output_file)
 
 
 if __name__ == "__main__":
     args = osbuild.api.arguments()
-    r = main(args["inputs"], args["devices"], args["tree"], args["options"])
+    r = main(args["inputs"], args["mounts"], args["tree"], args["options"], args["devices"])
     sys.exit(r)

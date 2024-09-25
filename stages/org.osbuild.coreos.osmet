@@ -1,11 +1,18 @@
 #!/usr/bin/python3
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
 
 import osbuild.api
+
+def get_os_name(deployed_tree):
+    with open(os.path.join(deployed_tree, 'usr/share/rpm-ostree/treefile.json')) as f:
+        treefile = json.load(f)
+    return treefile['rojig']['name']
+
 
 def sha256sum_file(path):
     """
@@ -43,6 +50,7 @@ def main(inputs, devices, tree, options):
 
         image = devices[img]['path']
         cmd = ['coreos-installer', 'pack', img_type, image]
+        fast_arg = []
 
         if img_type != "osmet":
             basearch = os.uname().machine
@@ -52,7 +60,6 @@ def main(inputs, devices, tree, options):
             tmpisofile = os.path.join(tree, iso_name)
             extra_cmd = [tmpisofile, f'{tmpisofile}.minimal', '--consume']
         else:
-            fast_arg = []
             if options['fast']:
                 fast = ['--fast']
             img_checksum = sha256sum_file(image)
