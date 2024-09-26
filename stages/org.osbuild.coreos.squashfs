@@ -1,0 +1,39 @@
+#!/usr/bin/python3
+import os
+import glob
+import subprocess
+import sys
+
+import osbuild.api
+
+
+def main(tree, mounts, devices):
+    # TODO Fail/Warn if metal is not here?
+    if  devices['metal']:
+        tmp_squashfs_dir = mounts['root']['path']
+        tmpinitrd_rootfs = os.path.join(tree, 'initrd-rootfs')
+        os.makedirs(tmpinitrd_rootfs, exist_ok=True)
+
+        basearch = os.uname().machine
+        # Remove the sysroot=readonly flag, see https://github.com/coreos/fedora-coreos-tracker/issues/589
+        subprocess.check_call(['sed', '-i', '/readonly=true/d', f'{tmp_squashfs_dir}/ostree/repo/config'])
+        # And ensure that the kernel binary and hmac file is in the place that dracut
+        # expects it to be; xref https://issues.redhat.com/browse/OCPBUGS-15843
+        kernel_binary = glob.glob(f"{tmp_squashfs_dir}/boot/ostree/*/vmlinuz*")[0]
+        kernel_hmac = glob.glob(f"{tmp_squashfs_dir}/boot/ostree/*/.*.hmac")[0]
+        kernel_binary_basename = os.path.basename(kernel_binary)
+        kernel_hmac_basename = os.path.basename(kernel_hmac)
+
+        # Create hard links in the /boot directory
+        os.link(kernel_hmac, f"{tmp_squashfs_dir}/boot/{kernel_hmac_basename}")
+        os.link(kernel_binary, f"{tmp_squashfs_dir}/boot/{kernel_binary_basename}")
+
+        print(f"Kernel binary linked: {tmp_squashfs_dir}/boot/{kernel_binary_basename}")
+        print(f"Kernel HMAC linked: {tmp_squashfs_dir}/boot/{kernel_hmac_basename}")
+    return 0
+
+
+if __name__ == '__main__':
+    args = osbuild.api.arguments()
+    r = main(args["tree"], args["mounts"], args["devices"])
+    sys.exit(r)

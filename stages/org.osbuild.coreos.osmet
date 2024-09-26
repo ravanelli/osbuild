@@ -1,0 +1,99 @@
+#!/usr/bin/python3
+
+import glob
+import hashlib
+import os
+import subprocess
+import shutil
+import sys
+
+import osbuild.api
+
+
+def sha256sum_file(path):
+    """
+    Calculates the sha256 sum from a path.
+
+    :param path: The full path to the file
+    :type: path: str
+    :returns: The calculated sha256 sum
+    :type: str
+    """
+    h = hashlib.sha256()
+    with open(path, 'rb', buffering=0) as f:
+        for b in iter(lambda: f.read(128 * 1024), b''):
+            h.update(b)
+    return h.hexdigest()
+
+
+def parse_os_release(deployed_tree):
+    """
+    Get the OS release.
+
+    :param deployed_tree: The full path to the tree
+    :type: path: str
+    :returns: The OS release name
+    :type: str
+    """
+    r = dict()
+    with open(os.path.join(deployed_tree, 'etc/os-release')) as f:
+        for line in f:
+            k, v = line.split('=', 1)
+            r[k] = v.strip(" \n\t'\"")
+    return r
+
+def bwrap(usr, etc, cmd):
+    """
+    Run the command using bwrap.
+
+    :param usr: The full path to /usr
+    :type: path: str
+    :param etc: The full path to /etc
+    :type: path: str
+    :param cmd: The command to be executed
+    :type: path: str
+    """
+    subprocess.check_call(["bwrap", "--unshare-pid", "--unshare-uts", "--unshare-ipc", "--dev-bind", "/dev", "/dev",
+                       "--ro-bind", "/sys", "/sys", "--proc", "/proc", "--chdir", "/", "--ro-bind", usr, "/usr",
+                       "--ro-bind", etc, "/etc", "--dir", "/tmp", "--tmpfs", "/var/tmp", "--tmpfs", "/run",
+                       "--bind", "/run/osbuild", "/run/osbuild",
+                       "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
+                       "--symlink", "usr/bin", "/bin", "--symlink", "usr/sbin", "/sbin"] + cmd)
+
+
+def main(inputs, devices, tree, options):
+    img_type = options['image_type']
+    cmd = ['coreos-installer', 'pack', img_type]
+    rootfs = inputs['tree']['path']
+    usr = os.path.join(rootfs, "usr")
+    etc = os.path.join(rootfs, "etc")
+    os_release = parse_os_release(inputs['tree']['path'])
+    fast_arg = []
+
+    if options['fast']:
+        fast_arg = ['--fast']
+   
+    if img_type != "osmet":
+        iso_name = glob.glob(f"{tree}/*.iso")[0]
+        tmpisofile = os.path.join(tree, iso_name)
+        cmd += [tmpisofile, f'{tmpisofile}.minimal', '--consume']
+        bwrap(usr, etc, cmd) 
+        output_file = os.path.join(tree, options['filename'])
+        shutil.move(tmpisofile, output_file)
+
+    else:
+        for img in ['metal', 'metal4k']:
+            image = devices[img]['path']
+            img_checksum = sha256sum_file(image)
+            tmpinitrd_rootfs = os.path.join(tree, 'initrd-rootfs')
+            os.makedirs(tmpinitrd_rootfs, exist_ok=True)
+            img_osmet = os.path.join(tmpinitrd_rootfs, f'{img}.osmet')
+            extra_cmd = [image, '--description', os_release['PRETTY_NAME'], '--checksum',
+            img_checksum, '--output', img_osmet]
+            bwrap(usr, etc, (cmd + extra_cmd + fast_arg))
+
+
+if __name__ == "__main__":
+    args = osbuild.api.arguments()
+    r = main(args["inputs"], args["devices"], args["tree"], args["options"])
+    sys.exit(r)

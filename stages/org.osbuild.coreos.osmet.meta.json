@@ -1,0 +1,28 @@
+{
+  "summary": "Create osmet file",
+  "description": [
+    "Create osmet file from CoreOS metal images loop devices.",
+    "For more information about what is a osmet file see:",
+    "https://coreos.github.io/coreos-installer/osmet/"
+  ],
+  "schema_2": {
+    "inputs": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "options": {
+      "additionalProperties": false,
+      "properties": {
+        "image_type": {
+          "type": "string"
+        },
+        "fast": {
+          "type": "boolean"
+        },
+        "filename": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
