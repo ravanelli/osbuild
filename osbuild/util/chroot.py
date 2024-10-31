@@ -43,6 +43,18 @@ class Chroot:
         if failed_umounts:
             print(f"Error unmounting paths from chroot: {failed_umounts}")
 
+    def mount_bind(self, target):
+        target_path = os.path.join(self.root, target.lstrip("/"))
+        if not os.path.exists(target_path):
+                print(f"Making missing chroot directory: {target}")
+                os.makedirs(target_path)
+        subprocess.run(["mount", "--rbind", target, target_path], check=True)
+
+    def umount(self, target):
+        target_path = os.path.join(self.root, target.lstrip("/"))
+        if subprocess.run(["umount", "--lazy", target_path], check=False).returncode != 0:
+            print(f"Error unmounting paths from chroot: {target}")
+
     def run(self, cmd, **kwargs):
         cmd = ["chroot", self.root] + cmd
         # pylint: disable=subprocess-run-check
