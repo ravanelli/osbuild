@@ -75,7 +75,7 @@ pipelines:
             options:
               filename: metal.raw
               partscan: true
-              read-only: true
+              read-only: false
               sector-size: 512
           metal4k:
             type: org.osbuild.loopback
@@ -88,20 +88,6 @@ pipelines:
             type: org.osbuild.loopback
             options:
               filename: efiboot.img
-        mounts:
-             - name: root
-               type: org.osbuild.xfs
-               source: metal
-               partition:
-                 mpp-format-int: '{image.layout[''root''].partnum}'
-               target: /tmp-squashfs-dir
-             - name: boot
-               type: org.osbuild.ext4
-               source: metal
-               partition:
-                 mpp-format-int: '{image.layout[''boot''].partnum}'
-               target: /tmp-squashfs-dir/boot
-
         options:
           efiboot_img_filename:
             mpp-format-string: 'efiboot.img'
