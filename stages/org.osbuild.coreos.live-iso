@@ -205,8 +205,13 @@ def main(inputs, devices, tree, options):
     # contents of rootfs image
     tmpinitrd_rootfs = os.path.join(tree, 'initrd-rootfs')
 
+    tmp_merged_dir = os.path.join(tree, 'merged')
+    tmp_workdir = os.path.join(tree, 'workdir')
+    tmp_upperdir = os.path.join(tree, 'upperdir')
+
     for d in (tmpisoroot, tmpisocoreos, tmpisoimages, tmpisoimagespxe,
-              tmpisoisolinux, tmpinitrd_base, tmpinitrd_rootfs):
+              tmpisoisolinux, tmpinitrd_base, tmpinitrd_rootfs,  tmp_merged_dir,
+              tmp_workdir , tmp_upperdir):
         os.mkdir(d)
 
     # convention for kernel and initramfs names
@@ -304,12 +309,18 @@ def main(inputs, devices, tree, options):
     # If mounted via the manifest, the stage begins with mounts already in place,
     # but osmet also performs a mount operation, leading to conflicts due to duplicate
     # filesystem UUIDs. Perform the manual mount only after the osmet stage
-    subprocess.check_call(['mount', '-o', 'rw', img_metal + 'p4', tmp_squashfs_dir])
-    subprocess.check_call(['mount', '-o', 'rw', img_metal + 'p3',
+    subprocess.check_call(['mount', '-o', 'ro', img_metal + 'p4', tmp_squashfs_dir])
+    subprocess.check_call(['mount', '-o', 'ro', img_metal + 'p3',
                            os.path.join(tmp_squashfs_dir, 'boot')])
     if basearch in ['x86_64', 'aarch64']:
-        subprocess.check_call(['mount', '-o', 'rw', img_metal + 'p2',
+        subprocess.check_call(['mount', '-o', 'ro', img_metal + 'p2',
                                os.path.join(tmp_squashfs_dir, 'boot/efi')])
+    # Mount the filesystem using OverlayFS in a read-only mode to ensure the image
+    # remains unchanged and consistent
+    subprocess.check_call(['mount', '-t', 'overlay', 'overlay', '-o',
+                           f'lowerdir={tmp_squashfs_dir},upperdir={tmp_upperdir},workdir={tmp_workdir}',
+                           f'{tmp_merged_dir}'])
+
     umount_needed = True
 
     # Immplements necessary CoreOS adjustments
@@ -322,7 +333,7 @@ def main(inputs, devices, tree, options):
 
     basearch = os.uname().machine
     # Remove the sysroot=readonly flag, see https://github.com/coreos/fedora-coreos-tracker/issues/589
-    subprocess.check_call(['sed', '-i', '/readonly=true/d', f'{tmp_squashfs_dir}/ostree/repo/config'])
+    subprocess.check_call(['sed', '-i', '/readonly=true/d', f'{tmp_merged_dir}/ostree/repo/config'])
     # And ensure that the kernel binary and hmac file is in the place that dracut
     # expects it to be; xref https://issues.redhat.com/browse/OCPBUGS-15843
     kernel_binary = glob.glob(f"{tmp_squashfs_dir}/boot/ostree/*/vmlinuz*")[0]
@@ -330,12 +341,20 @@ def main(inputs, devices, tree, options):
     kernel_binary_basename = os.path.basename(kernel_binary)
     kernel_hmac_basename = os.path.basename(kernel_hmac)
 
-    # Create hard links in the /boot directory
-    os.link(kernel_hmac, f"{tmp_squashfs_dir}/boot/{kernel_hmac_basename}")
-    os.link(kernel_binary, f"{tmp_squashfs_dir}/boot/{kernel_binary_basename}")
+    # OverlayFS does not support hardlink, since it will a cross drive link, copy it and link after
+    merged_path = (os.path.dirname(kernel_binary).replace("tmp-squashfs-dir", "merged"))
+    os.makedirs(merged_path, exist_ok=True)
+    merged_binary = f"{merged_path}/{kernel_binary_basename}"
+    merged_hmac = f"{merged_path}/{kernel_hmac_basename}"
 
-    print(f"Kernel binary linked: {tmp_squashfs_dir}/boot/{kernel_binary_basename}")
-    print(f"Kernel HMAC linked: {tmp_squashfs_dir}/boot/{kernel_hmac_basename}")
+    subprocess.run(['cp', '-Rf', kernel_binary, merged_binary])
+    subprocess.run(['cp', '-Rf', kernel_hmac, merged_hmac])
+    # Create hard links in the /boot directory
+    os.link(merged_hmac, f"{tmp_merged_dir}/boot/{kernel_hmac_basename}")
+    os.link(merged_binary, f"{tmp_merged_dir}/boot/{kernel_binary_basename}")
+
+    print(f"Kernel binary linked: {tmp_merged_dir}/boot/{kernel_binary_basename}")
+    print(f"Kernel HMAC linked: {tmp_merged_dir}/boot/{kernel_hmac_basename}")
     # Generate root squashfs
     print(f'Compressing squashfs with {squashfs_compression}')
 
@@ -345,8 +364,8 @@ def main(inputs, devices, tree, options):
         tmp_squashfs = os.path.join(tmpinitrd_rootfs, 'root.squashfs')
         # this matches the set of flags we implicitly passed when doing this
         # through libguestfs' mksquashfs command
-        subprocess.check_call(['mksquashfs', tmp_squashfs_dir, tmp_squashfs,
-                               '-root-becomes', tmp_squashfs_dir, '-wildcards', '-no-recovery',
+        subprocess.check_call(['mksquashfs', tmp_merged_dir, tmp_squashfs,
+                               '-root-becomes', tmp_merged_dir, '-wildcards', '-no-recovery',
                                '-comp', squashfs_compression])
 
         # while it's mounted here, also get the kargs

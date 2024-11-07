@@ -75,7 +75,7 @@ pipelines:
             options:
               filename: metal.raw
               partscan: true
-              read-only: false
+              read-only: true
               sector-size: 512
           metal4k:
             type: org.osbuild.loopback
