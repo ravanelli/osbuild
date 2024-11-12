@@ -33,7 +33,7 @@ def parse_files(*paths):
                 if line[0] == "#":
                     continue
                 key, value = line.split("=", 1)
-                osrelease[key] = value.strip('"')
+                osrelease[key] = value.strip(" \n\t'\"")
 
     return osrelease
 
